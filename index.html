@@ -4,12 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Matter.js Interactive Sandbox</title>
+    <!-- Use absolute path as you discovered works in your environment -->
     <link rel="stylesheet" href="/SuperRigger/css/style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap" rel="stylesheet">
 </head>
 <body>
+    <!-- Your UI panel HTML remains unchanged -->
     <div id="editor-panel" class="ui-panel">
         <h3 id="ui-title">New Constraint</h3>
         <div class="control-group">
@@ -25,8 +27,8 @@
             <div class="input-group">
                 <label>Translate (x, y)</label>
                 <div>
-                    <input type="number" id="composite-translate-x" step="10">
-                    <input type="number" id="composite-translate-y" step="10">
+                    <input type="number" id="composite-translate-x" step="10" value="0">
+                    <input type="number" id="composite-translate-y" step="10" value="0">
                 </div>
             </div>
             <div class="slider-group">
@@ -229,7 +231,12 @@
         <b>Left-click:</b> Select | <b>Right-click:</b> Select for constraint | <b>Drag:</b> Move
     </div>
 
+    <!-- Switched to reliable CDNs for libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
-    <script src="/SuperRigger/js/main.js"></script>
+    <script src="./libs/matter-tools.js"></script>
+    
+    <!-- Load main.js as a module to handle imports/exports -->
+    <script type="module" src="/SuperRigger/js/main.js"></script>
+
 </body>
 </html>
