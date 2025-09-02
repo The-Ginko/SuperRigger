@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matter.js Interactive Sandbox</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="editor-panel" class="ui-panel">
+        <h3 id="ui-title">New Constraint</h3>
+        <div class="control-group">
+            <label>Select Existing Constraint</label>
+            <select id="existing-constraint-list"></select>
+        </div>
+        
+        <div id="composite-editor">
+            <input type="text" id="composite-name-input" placeholder="Composite Name">
+            <div class="input-group">
+                <label>ID: <span id="composite-id-display" style="font-weight: normal;">N/A</span></label>
+            </div>
+            <div class="input-group">
+                <label>Translate (x, y)</label>
+                <div>
+                    <input type="number" id="composite-translate-x" step="10">
+                    <input type="number" id="composite-translate-y" step="10">
+                </div>
+            </div>
+            <div class="slider-group">
+                <label for="composite-rotation">Rotate: <span id="composite-rotation-value">0</span>°</label>
+                <input type="range" id="composite-rotation" min="-180" max="180" step="1" value="0">
+            </div>
+            <div class="slider-group">
+                <label for="composite-scale">Scale: <span id="composite-scale-value">1.00</span>x</label>
+                <input type="range" id="composite-scale" min="0.1" max="5" step="0.01" value="1">
+            </div>
+            <p id="composite-editor-message" style="display:none; font-size: 12px; margin: 10px 0;">Object is selected. To manipulate it, you must first remove it from this composite.</p>
+            <button id="remove-from-composite-btn" class="delete-button" style="display: none; margin-top: 0;">Remove Selected Object</button>
+            <button id="delete-composite-btn" class="delete-button">Delete Composite</button>
+        </div>
+    
+        <div id="constraint-editor">
+            <div class="slider-group">
+                <label for="stiffness">Stiffness: <span id="stiffness-value">0.10</span></label>
+                <input type="range" id="stiffness" min="0" max="1" step="0.01" value="0.1">
+            </div>
+            <div class="slider-group">
+                <label for="damping">Damping: <span id="damping-value">0.050</span></label>
+                <input type="range" id="damping" min="0" max="0.1" step="0.001" value="0.05">
+            </div>
+            <div class="slider-group">
+                <label for="length">Length: <span id="length-value">100</span></label>
+                <input type="range" id="length" min="0" max="500" step="1" value="100">
+            </div>
+            <div class="input-group">
+                <label>Point A Offset (x, y)</label>
+                <div><input type="number" id="constraint-point-ax" step="1" value="0"><input type="number" id="constraint-point-ay" step="1" value="0"></div>
+            </div>
+            <div class="input-group">
+                <label>Point B Offset (x, y)</label>
+                <div><input type="number" id="constraint-point-bx" step="1" value="0"><input type="number" id="constraint-point-by" step="1" value="0"></div>
+            </div>
+            <button id="delete-constraint-btn" class="delete-button" style="display: none;">Delete Constraint</button>
+        </div>
+    
+        <div id="assign-to-composite-section">
+            <div class="control-group">
+                <label>Assign to Composite</label>
+                <select id="assign-composite-list"></select>
+                <button id="add-to-composite-btn" style="margin-top: 10px;">Assign</button>
+            </div>
+        </div>
+    
+        <div id="object-editor" style="display: none;">
+             <div class="checkbox-group">
+                <label for="is-static">Static</label>
+                <input type="checkbox" id="is-static">
+            </div>
+            <div class="slider-group">
+                <label for="angle">Angle: <span id="angle-value">0</span>°</label>
+                <input type="range" id="angle" min="0" max="360" step="1" value="0">
+            </div>
+            <div class="slider-group">
+                <label for="restitution">Bounciness: <span id="restitution-value">0.50</span></label>
+                <input type="range" id="restitution" min="0" max="1" step="0.01" value="0.5">
+            </div>
+            <div class="slider-group">
+                <label for="friction">Friction: <span id="friction-value">0.10</span></label>
+                <input type="range" id="friction" min="0" max="1" step="0.01" value="0.1">
+            </div>
+            <div class="slider-group">
+                <label for="friction-static">Static Friction: <span id="friction-static-value">0.50</span></label>
+                <input type="range" id="friction-static" min="0" max="1" step="0.01" value="0.5">
+            </div>
+            <div class="slider-group">
+                <label for="friction-air">Air Friction: <span id="friction-air-value">0.010</span></label>
+                <input type="range" id="friction-air" min="0" max="0.1" step="0.001" value="0.01">
+            </div>
+             <div class="slider-group">
+                <label for="density">Density: <span id="density-value">0.001</span></label>
+                <input type="range" id="density" min="0.001" max="0.1" step="0.001" value="0.001">
+            </div>
+            <div class="input-group">
+                <label>Position (x, y)</label>
+                <div><input type="number" id="position-x" step="1"><input type="number" id="position-y" step="1"></div>
+            </div>
+            <div class="input-group">
+                <label>Center of Mass Offset (x, y)</label>
+                <div><input type="number" id="com-offset-x" step="1" value="0"><input type="number" id="com-offset-y" step="1" value="0"></div>
+            </div>
+            <div id="size-editor-circle" class="slider-group" style="display: none;">
+                <label for="radius">Radius: <span id="radius-value">30</span></label>
+                <input type="range" id="radius" min="10" max="100" step="1" value="30">
+            </div>
+            <div id="size-editor-rect" style="display: none;">
+                <div class="slider-with-controls">
+                    <label for="width">Width: <span id="width-value">50</span></label>
+                    <div class="range-and-controls">
+                        <input type="range" id="width" min="10" max="200" step="1" value="50">
+                        <div class="range-controls">
+                            <button class="range-up" data-target="width" data-scale="10">▲</button>
+                            <button class="range-down" data-target="width" data-scale="0.1">▼</button>
+                        </div>
+                    </div>
+                    <span class="range-display">Range: 10 - 200</span>
+                </div>
+                <div class="slider-with-controls">
+                    <label for="height">Height: <span id="height-value">50</span></label>
+                    <div class="range-and-controls">
+                        <input type="range" id="height" min="10" max="200" step="1" value="50">
+                        <div class="range-controls">
+                            <button class="range-up" data-target="height" data-scale="10">▲</button>
+                            <button class="range-down" data-target="height" data-scale="0.1">▼</button>
+                            </div>
+                    </div>
+                    <span class="range-display">Range: 10 - 200</span>
+                </div>
+            </div>
+             <div id="size-editor-polygon" class="slider-group" style="display: none;">
+                <label for="polygon-size">Size: <span id="polygon-size-value">40</span></label>
+                <input type="range" id="polygon-size" min="10" max="100" step="1" value="40">
+            </div>
+            <div class="input-group">
+                <label>Collision Group</label>
+                <input type="number" id="collision-group" style="width: 100%;">
+            </div>
+            <div class="input-group">
+                <label>Collision Category</label>
+                <input type="number" id="collision-category" style="width: 100%;">
+            </div>
+            <div class="input-group">
+                <label>Collision Mask</label>
+                <input type="number" id="collision-mask" style="width: 100%;">
+            </div>
+            <button id="break-compound-btn" class="delete-button" style="display: none; background-color: #F4B400; border-color: #F4B400; margin-top: 5px;">Break Apart</button>
+            <button id="delete-object-btn" class="delete-button" style="display: none;">Delete Object</button>
+        </div>
+    </div>
+
+    <div id="controls-panel" class="ui-panel">
+        <div class="control-group">
+            <h3>Add Object</h3>
+            <select id="object-type">
+                <option value="circle">Circle</option>
+                <option value="rectangle">Rectangle</option>
+                <option value="triangle">Triangle</option>
+            </select>
+            <button id="add-object-btn" style="margin-top: 10px;">Add to Scene</button>
+        </div>
+        <div class="control-group">
+            <h3>Composites</h3>
+            <select id="composite-list"></select>
+            <button id="add-composite-btn" style="margin-top: 10px;">Add New Composite</button>
+        </div>
+        
+        <div class="control-group">
+            <h3>Save/Load</h3>
+            <button id="save-composite-btn">Save Selected</button>
+            <button id="load-composite-btn" style="margin-top: 10px;">Load Composite</button>
+        </div>
+        <div class="control-group">
+            <h3>Mode</h3>
+            <div class="checkbox-group">
+                <label for="build-mode-checkbox">Build Mode</label>
+                <input type="checkbox" id="build-mode-checkbox">
+            </div>
+        </div>
+        <div class="control-group" id="compound-actions">
+            <h3>Compound Body</h3>
+            <button id="create-compound-btn" disabled>Create Compound</button>
+        </div>
+
+        <div class="control-group" id="world-controls">
+            <h3>World Properties</h3>
+            <div class="slider-group">
+                <label for="gravity-slider">Gravity Y: <span id="gravity-value">1.00</span></label>
+                <input type="range" id="gravity-slider" min="0" max="2" step="0.01" value="1">
+            </div>
+        </div>
+    </div>
+
+    <div id="delete-modal" class="modal-overlay">
+        <div class="modal-content">
+            <p id="modal-text">You are about to delete this.</p>
+            <div class="modal-buttons">
+                <button id="confirm-delete">Confirm</button>
+                <button id="deny-delete">Deny</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="load-modal" class="modal-overlay">
+        <div class="modal-content">
+            <p>Paste composite JSON string below:</p>
+            <textarea id="load-textarea"></textarea>
+            <div class="modal-buttons">
+                <button id="confirm-load">Load</button>
+                <button id="deny-load">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="copy-message" class="message-box"></div>
+
+    <div class="instructions">
+        <b>Left-click:</b> Select | <b>Right-click:</b> Select for constraint | <b>Drag:</b> Move
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+    <script src="./libs/matter-tools.js"></script>
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>

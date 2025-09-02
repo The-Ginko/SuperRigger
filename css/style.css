@@ -1,0 +1,212 @@
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #111;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Inter', sans-serif;
+            color: #fff;
+        }
+        canvas {
+            display: block;
+        }
+        .ui-panel {
+            position: absolute;
+            background-color: rgba(20, 20, 20, 0.7);
+            backdrop-filter: blur(5px);
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        #editor-panel {
+            top: 20px;
+            left: 20px;
+            width: 250px;
+            max-height: calc(100vh - 40px);
+            overflow-y: auto;
+        }
+        #controls-panel {
+            top: 20px;
+            right: 20px;
+            width: 200px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .control-group select, .control-group button {
+            width: 100%;
+            padding: 8px;
+            border-radius: 5px;
+            border: 1px solid #555;
+            background-color: #333;
+            color: #fff;
+            font-family: 'Inter', sans-serif;
+        }
+        .control-group button {
+            cursor: pointer;
+            background-color: #4285F4;
+            border-color: #4285F4;
+        }
+        .ui-panel h3 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            text-align: center;
+            font-weight: 500;
+        }
+        .slider-group, .input-group, .checkbox-group {
+            margin-bottom: 12px;
+        }
+        .slider-group label, .input-group label, .checkbox-group label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 5px 0;
+        }
+        .slider-group input[type="range"] {
+            width: 100%;
+            cursor: pointer;
+        }
+        .slider-group input[type="range"]:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+        .input-group input[type="number"] {
+            width: 48%;
+            background-color: #333;
+            color: #fff;
+            border: 1px solid #555;
+            border-radius: 4px;
+            padding: 4px;
+        }
+        .input-group div {
+            display: flex;
+            justify-content: space-between;
+        }
+        .instructions {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0, 0, 0, 0.6);
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            text-align: center;
+            pointer-events: none;
+        }
+        .delete-button {
+            width: 100%;
+            padding: 8px;
+            margin-top: 15px;
+            border-radius: 5px;
+            border: 1px solid #DB4437;
+            background-color: #DB4437;
+            color: #fff;
+            cursor: pointer;
+        }
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0,0,0,0.7); display: none;
+            justify-content: center; align-items: center; z-index: 1000;
+        }
+        .modal-content {
+            background: #222; padding: 20px 30px; border-radius: 10px; text-align: center;
+        }
+        .modal-content p { margin: 0 0 20px 0; }
+        .modal-buttons button { padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; margin: 0 10px; }
+        #confirm-delete { background-color: #DB4437; color: white; }
+        #deny-delete { background-color: #555; color: white; }
+        /* New styles for the Composites Feature */
+        .highlight-green {
+            stroke: #0F9D58 !important;
+            stroke-width: 4 !important;
+        }
+        .highlight-blue {
+            stroke: #4285F4 !important;
+            stroke-width: 4 !important;
+        }
+        #composite-editor, #assign-to-composite-section {
+            display: none;
+        }
+        #composite-name-input {
+            width: 100%;
+            padding: 8px;
+            border-radius: 5px;
+            border: 1px solid #555;
+            background-color: #333;
+            color: #fff;
+            font-family: 'Inter', sans-serif;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        .message-box {
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: #444; color: #fff; padding: 15px 30px; border-radius: 8px;
+            z-index: 1001; opacity: 0; transition: opacity 0.3s; pointer-events: none;
+        }
+        #load-modal textarea {
+            width: 100%;
+            min-height: 150px;
+            background: #111;
+            color: #eee;
+            border: 1px solid #555;
+            padding: 5px;
+            border-radius: 5px;
+            font-family: monospace;
+            resize: vertical;
+        }
+        //styling for controls sliders with range control 
+        .slider-with-controls {
+    margin-bottom: 12px;
+}
+.slider-with-controls label {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 5px;
+    font-size: 14px;
+}
+.range-and-controls {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+.range-and-controls input[type="range"] {
+    flex-grow: 1;
+    cursor: pointer;
+}
+.range-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.range-controls button {
+    height: 14px;
+    width: 14px;
+    line-height: 0;
+    padding: 0;
+    border-radius: 3px;
+    border: 1px solid #555;
+    background-color: #333;
+    color: #fff;
+    font-size: 10px;
+    cursor: pointer;
+}
+.range-controls button:active {
+    transform: translateY(1px);
+}
+.range-display {
+    font-size: 10px;
+    color: #888;
+    display: block;
+    text-align: right;
+}
+   
