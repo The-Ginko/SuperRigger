@@ -3,36 +3,12 @@ import { Matter } from './matter-alias.js';
 import state from './state.js';
 import { addComposite, deleteComposite, removeFromComposite, createCompoundBody, breakCompoundBody, assignToComposite } from './actions.js';
 import { saveComposite, showLoadModal } from './serialization.js';
-import { deselectAll } from './interaction.js';
+import { deselectAll, findParentComposite, getCompositeBounds } from './interaction.js';
 
 const { Body, Vertices, Vector, Composite } = Matter;
 
-// --- UI ELEMENT REFERENCES ---
-const uiElements = {
-    uiTitle: document.getElementById('ui-title'),
-    constraintEditor: document.getElementById('constraint-editor'),
-    objectEditor: document.getElementById('object-editor'),
-    compositeEditor: document.getElementById('composite-editor'),
-    assignToCompositeSection: document.getElementById('assign-to-composite-section'),
-    deleteConstraintBtn: document.getElementById('delete-constraint-btn'),
-    deleteObjectBtn: document.getElementById('delete-object-btn'),
-    deleteCompositeBtn: document.getElementById('delete-composite-btn'),
-    removeFromCompositeBtn: document.getElementById('remove-from-composite-btn'),
-    deleteModal: document.getElementById('delete-modal'),
-    modalText: document.getElementById('modal-text'),
-    createCompoundBtn: document.getElementById('create-compound-btn'),
-    breakCompoundBtn: document.getElementById('break-compound-btn'),
-    compositeNameInput: document.getElementById('composite-name-input'),
-    compositeList: document.getElementById('composite-list'),
-    assignCompositeList: document.getElementById('assign-composite-list'),
-    addToCompositeBtn: document.getElementById('add-to-composite-btn'),
-    saveCompositeBtn: document.getElementById('save-composite-btn'),
-    loadCompositeBtn: document.getElementById('load-composite-btn'),
-    gravitySlider: document.getElementById('gravity-slider'),
-    gravityValueSpan: document.getElementById('gravity-value'),
-    copyMessage: document.getElementById('copy-message'),
-    existingConstraintList: document.getElementById('existing-constraint-list'),
-};
+// This object will be populated by initUI once the DOM is ready.
+let uiElements = {};
 
 /**
  * Shows the appropriate editor panel based on the current selection.
@@ -50,7 +26,6 @@ export function showEditor(mode) {
     uiElements.assignToCompositeSection.style.display = 'none';
     uiElements.removeFromCompositeBtn.style.display = 'none';
     document.getElementById('composite-editor-message').style.display = 'none';
-
 
     // Toggle save button based on selection
     uiElements.saveCompositeBtn.disabled = !state.selectedComposite;
@@ -96,14 +71,13 @@ export function populateEditor(item) {
         const body = item;
         const isCompound = body.parts.length > 1;
 
-        // Disable size/COM controls for compound bodies
         const sizeControlsDisabled = isCompound;
-        document.getElementById('radius').disabled = sizeControlsDisabled;
-        document.getElementById('width').disabled = sizeControlsDisabled;
-        document.getElementById('height').disabled = sizeControlsDisabled;
-        document.getElementById('polygon-size').disabled = sizeControlsDisabled;
-        document.getElementById('com-offset-x').disabled = sizeControlsDisabled;
-        document.getElementById('com-offset-y').disabled = sizeControlsDisabled;
+        uiElements.radius.disabled = sizeControlsDisabled;
+        uiElements.width.disabled = sizeControlsDisabled;
+        uiElements.height.disabled = sizeControlsDisabled;
+        uiElements.polygonSize.disabled = sizeControlsDisabled;
+        uiElements.comX.disabled = sizeControlsDisabled;
+        uiElements.comY.disabled = sizeControlsDisabled;
 
         const isCircle = body.circleRadius > 0;
         const isRectangle = !isCircle && body.vertices.length === 4;
@@ -114,55 +88,55 @@ export function populateEditor(item) {
 
         if (isCircle) {
             document.getElementById('size-editor-circle').style.display = 'block';
-            document.getElementById('radius').value = body.circleRadius;
+            uiElements.radius.value = body.circleRadius;
         } else if (isRectangle && !isCompound) {
             document.getElementById('size-editor-rect').style.display = 'block';
-            document.getElementById('width').value = body.bounds.max.x - body.bounds.min.x;
-            document.getElementById('height').value = body.bounds.max.y - body.bounds.min.y;
+            uiElements.width.value = body.bounds.max.x - body.bounds.min.x;
+            uiElements.height.value = body.bounds.max.y - body.bounds.min.y;
         } else if (!isCompound) { 
             document.getElementById('size-editor-polygon').style.display = 'block';
             const size = Math.sqrt(body.area / (body.vertices.length === 3 ? 0.433 : 1));
-            document.getElementById('polygon-size').value = size;
+            uiElements.polygonSize.value = size;
         }
 
-        document.getElementById('is-static').checked = body.isStatic;
-        document.getElementById('angle').value = Math.round(body.angle * (180 / Math.PI)) % 360;
-        document.getElementById('restitution').value = body.restitution;
-        document.getElementById('friction').value = body.friction;
-        document.getElementById('friction-static').value = body.frictionStatic;
-        document.getElementById('friction-air').value = body.frictionAir;
-        document.getElementById('density').value = body.density;
-        document.getElementById('position-x').value = Math.round(body.position.x);
-        document.getElementById('position-y').value = Math.round(body.position.y);
+        uiElements.isStatic.checked = body.isStatic;
+        uiElements.angle.value = Math.round(body.angle * (180 / Math.PI)) % 360;
+        uiElements.restitution.value = body.restitution;
+        uiElements.friction.value = body.friction;
+        uiElements.frictionStatic.value = body.frictionStatic;
+        uiElements.frictionAir.value = body.frictionAir;
+        uiElements.density.value = body.density;
+        uiElements.posX.value = Math.round(body.position.x);
+        uiElements.posY.value = Math.round(body.position.y);
 
         const geometricCenter = Vertices.centre(body.vertices);
         const offsetX = body.position.x - geometricCenter.x;
         const offsetY = body.position.y - geometricCenter.y;
-        document.getElementById('com-offset-x').value = Math.round(offsetX);
-        document.getElementById('com-offset-y').value = Math.round(offsetY);
+        uiElements.comX.value = Math.round(offsetX);
+        uiElements.comY.value = Math.round(offsetY);
         
-        document.getElementById('collision-group').value = body.collisionFilter.group;
-        document.getElementById('collision-category').value = body.collisionFilter.category;
-        document.getElementById('collision-mask').value = body.collisionFilter.mask;
+        uiElements.group.value = body.collisionFilter.group;
+        uiElements.category.value = body.collisionFilter.category;
+        uiElements.mask.value = body.collisionFilter.mask;
         
         uiElements.assignToCompositeSection.style.display = 'block';
     } else if (item.type === 'constraint') {
         const constraint = item;
-        document.getElementById('stiffness').value = constraint.stiffness;
-        document.getElementById('damping').value = constraint.damping;
-        document.getElementById('length').value = constraint.length;
-        document.getElementById('constraint-point-ax').value = constraint.pointA.x;
-        document.getElementById('constraint-point-ay').value = constraint.pointA.y;
-        document.getElementById('constraint-point-bx').value = constraint.pointB.x;
-        document.getElementById('constraint-point-by').value = constraint.pointB.y;
+        uiElements.stiffness.value = constraint.stiffness;
+        uiElements.damping.value = constraint.damping;
+        uiElements.length.value = constraint.length;
+        uiElements.constraintPointAX.value = constraint.pointA.x;
+        uiElements.constraintPointAY.value = constraint.pointA.y;
+        uiElements.constraintPointBX.value = constraint.pointB.x;
+        uiElements.constraintPointBY.value = constraint.pointB.y;
         uiElements.assignToCompositeSection.style.display = 'block';
     } else if (item.type === 'composite') {
         const composite = item;
         document.getElementById('composite-id-display').textContent = composite.id;
-        document.getElementById('composite-translate-x').value = 0;
-        document.getElementById('composite-translate-y').value = 0;
-        document.getElementById('composite-rotation').value = 0;
-        document.getElementById('composite-scale').value = 1;
+        uiElements.compTranslateX.value = 0;
+        uiElements.compTranslateY.value = 0;
+        uiElements.compRotation.value = 0;
+        uiElements.compScale.value = 1;
     }
     updateEditorLabels();
 }
@@ -329,12 +303,34 @@ export function showMessage(text, type = 'success') {
 /**
  * Initializes all UI event listeners.
  * @param {Matter.Engine} engine
- * @param {Matter.World} world
- * @param {Matter.Composite} masterComposite
  */
-export function initUI(engine, world, masterComposite) {
-    
-    const inputs = {
+export function initUI(engine) {
+    // --- POPULATE UI ELEMENTS OBJECT ---
+    // This now happens inside initUI to ensure the DOM is ready.
+    uiElements = {
+        uiTitle: document.getElementById('ui-title'),
+        constraintEditor: document.getElementById('constraint-editor'),
+        objectEditor: document.getElementById('object-editor'),
+        compositeEditor: document.getElementById('composite-editor'),
+        assignToCompositeSection: document.getElementById('assign-to-composite-section'),
+        deleteConstraintBtn: document.getElementById('delete-constraint-btn'),
+        deleteObjectBtn: document.getElementById('delete-object-btn'),
+        deleteCompositeBtn: document.getElementById('delete-composite-btn'),
+        removeFromCompositeBtn: document.getElementById('remove-from-composite-btn'),
+        deleteModal: document.getElementById('delete-modal'),
+        modalText: document.getElementById('modal-text'),
+        createCompoundBtn: document.getElementById('create-compound-btn'),
+        breakCompoundBtn: document.getElementById('break-compound-btn'),
+        compositeNameInput: document.getElementById('composite-name-input'),
+        compositeList: document.getElementById('composite-list'),
+        assignCompositeList: document.getElementById('assign-composite-list'),
+        addToCompositeBtn: document.getElementById('add-to-composite-btn'),
+        saveCompositeBtn: document.getElementById('save-composite-btn'),
+        loadCompositeBtn: document.getElementById('load-composite-btn'),
+        gravitySlider: document.getElementById('gravity-slider'),
+        gravityValueSpan: document.getElementById('gravity-value'),
+        copyMessage: document.getElementById('copy-message'),
+        existingConstraintList: document.getElementById('existing-constraint-list'),
         isStatic: document.getElementById('is-static'),
         angle: document.getElementById('angle'),
         restitution: document.getElementById('restitution'),
@@ -366,38 +362,38 @@ export function initUI(engine, world, masterComposite) {
         compScale: document.getElementById('composite-scale')
     };
 
-    // ... (All the input event listeners go here, verbatim from the original file)
-    inputs.isStatic.addEventListener('change', () => { if (state.selectedObject) Body.setStatic(state.selectedObject, inputs.isStatic.checked); });
-    inputs.angle.addEventListener('input', () => { if (state.selectedObject) Body.setAngle(state.selectedObject, parseFloat(inputs.angle.value) * (Math.PI / 180)); updateEditorLabels(); });
-    inputs.restitution.addEventListener('input', () => { if (state.selectedObject) state.selectedObject.restitution = parseFloat(inputs.restitution.value); updateEditorLabels(); });
-    inputs.friction.addEventListener('input', () => { if (state.selectedObject) state.selectedObject.friction = parseFloat(inputs.friction.value); updateEditorLabels(); });
-    inputs.frictionStatic.addEventListener('input', () => { if (state.selectedObject) state.selectedObject.frictionStatic = parseFloat(inputs.frictionStatic.value); updateEditorLabels(); });
-    inputs.frictionAir.addEventListener('input', () => { if (state.selectedObject) state.selectedObject.frictionAir = parseFloat(inputs.frictionAir.value); updateEditorLabels(); });
-    inputs.density.addEventListener('input', () => { if (state.selectedObject) Body.setDensity(state.selectedObject, parseFloat(inputs.density.value)); updateEditorLabels(); });
-    inputs.posX.addEventListener('input', () => { if (state.selectedObject) Body.setPosition(state.selectedObject, { x: parseFloat(inputs.posX.value), y: state.selectedObject.position.y }); updateEditorLabels(); });
-    inputs.posY.addEventListener('input', () => { if (state.selectedObject) Body.setPosition(state.selectedObject, { x: state.selectedObject.position.x, y: parseFloat(inputs.posY.value) }); updateEditorLabels(); });
-    inputs.comX.addEventListener('input', () => { if (state.selectedObject) { const newOffsetX = parseFloat(inputs.comX.value) || 0; const currentOffsetY = parseFloat(inputs.comY.value) || 0; Body.setCentre(state.selectedObject, { x: newOffsetX, y: currentOffsetY }, true); } });
-    inputs.comY.addEventListener('input', () => { if (state.selectedObject) { const newOffsetY = parseFloat(inputs.comY.value) || 0; const currentOffsetX = parseFloat(inputs.comX.value) || 0; Body.setCentre(state.selectedObject, { x: currentOffsetX, y: newOffsetY }, true); } });
-    inputs.radius.addEventListener('input', () => { if (state.selectedObject && state.selectedObject.circleRadius) { const newRadius = parseFloat(inputs.radius.value); const oldRadius = state.selectedObject.circleRadius; if (oldRadius > 0) Body.scale(state.selectedObject, newRadius / oldRadius, newRadius / oldRadius); } updateEditorLabels(); });
-    inputs.width.addEventListener('input', () => { if (state.selectedObject && !state.selectedObject.circleRadius) { const newWidth = parseFloat(inputs.width.value); const oldWidth = state.selectedObject.bounds.max.x - state.selectedObject.bounds.min.x; if (oldWidth > 0) Body.scale(state.selectedObject, newWidth / oldWidth, 1); } updateEditorLabels(); });
-    inputs.height.addEventListener('input', () => { if (state.selectedObject && !state.selectedObject.circleRadius) { const newHeight = parseFloat(inputs.height.value); const oldHeight = state.selectedObject.bounds.max.y - state.selectedObject.bounds.min.y; if (oldHeight > 0) Body.scale(state.selectedObject, 1, newHeight / oldHeight); } updateEditorLabels(); });
-    inputs.polygonSize.addEventListener('input', () => { if (state.selectedObject && !state.selectedObject.circleRadius && state.selectedObject.vertices.length !== 4) { const newSize = parseFloat(inputs.polygonSize.value); const currentSize = Math.sqrt(state.selectedObject.area / (state.selectedObject.vertices.length === 3 ? 0.433 : 1)); const scaleFactor = newSize / currentSize; if (currentSize > 0 && isFinite(scaleFactor)) { Body.scale(state.selectedObject, scaleFactor, scaleFactor); } } updateEditorLabels(); });
-    inputs.group.addEventListener('input', () => { if (state.selectedObject && !isNaN(parseInt(inputs.group.value))) state.selectedObject.collisionFilter.group = parseInt(inputs.group.value); });
-    inputs.category.addEventListener('input', () => { if (state.selectedObject && !isNaN(parseInt(inputs.category.value))) state.selectedObject.collisionFilter.category = parseInt(inputs.category.value); });
-    inputs.mask.addEventListener('input', () => { if (state.selectedObject && !isNaN(parseInt(inputs.mask.value))) state.selectedObject.collisionFilter.mask = parseInt(inputs.mask.value); });
-    inputs.stiffness.addEventListener('input', () => { if(state.selectedConstraint) state.selectedConstraint.stiffness = parseFloat(inputs.stiffness.value); updateEditorLabels(); });
-    inputs.damping.addEventListener('input', () => { if(state.selectedConstraint) state.selectedConstraint.damping = parseFloat(inputs.damping.value); updateEditorLabels(); });
-    inputs.length.addEventListener('input', () => { if(state.selectedConstraint) state.selectedConstraint.length = parseFloat(inputs.length.value); updateEditorLabels(); });
-    inputs.constraintPointAX.addEventListener('input', () => { if(state.selectedConstraint) state.selectedConstraint.pointA.x = parseFloat(inputs.constraintPointAX.value); });
-    inputs.constraintPointAY.addEventListener('input', () => { if(state.selectedConstraint) state.selectedConstraint.pointA.y = parseFloat(inputs.constraintPointAY.value); });
-    inputs.constraintPointBX.addEventListener('input', () => { if(state.selectedConstraint) state.selectedConstraint.pointB.x = parseFloat(inputs.constraintPointBX.value); });
-    inputs.constraintPointBY.addEventListener('input', () => { if(state.selectedConstraint) state.selectedConstraint.pointB.y = parseFloat(inputs.constraintPointBY.value); });
+    // --- SETUP EVENT LISTENERS ---
+    uiElements.isStatic.addEventListener('change', () => { if (state.selectedObject) Body.setStatic(state.selectedObject, uiElements.isStatic.checked); });
+    uiElements.angle.addEventListener('input', () => { if (state.selectedObject) Body.setAngle(state.selectedObject, parseFloat(uiElements.angle.value) * (Math.PI / 180)); updateEditorLabels(); });
+    uiElements.restitution.addEventListener('input', () => { if (state.selectedObject) state.selectedObject.restitution = parseFloat(uiElements.restitution.value); updateEditorLabels(); });
+    uiElements.friction.addEventListener('input', () => { if (state.selectedObject) state.selectedObject.friction = parseFloat(uiElements.friction.value); updateEditorLabels(); });
+    uiElements.frictionStatic.addEventListener('input', () => { if (state.selectedObject) state.selectedObject.frictionStatic = parseFloat(uiElements.frictionStatic.value); updateEditorLabels(); });
+    uiElements.frictionAir.addEventListener('input', () => { if (state.selectedObject) state.selectedObject.frictionAir = parseFloat(uiElements.frictionAir.value); updateEditorLabels(); });
+    uiElements.density.addEventListener('input', () => { if (state.selectedObject) Body.setDensity(state.selectedObject, parseFloat(uiElements.density.value)); updateEditorLabels(); });
+    uiElements.posX.addEventListener('input', () => { if (state.selectedObject) Body.setPosition(state.selectedObject, { x: parseFloat(uiElements.posX.value), y: state.selectedObject.position.y }); updateEditorLabels(); });
+    uiElements.posY.addEventListener('input', () => { if (state.selectedObject) Body.setPosition(state.selectedObject, { x: state.selectedObject.position.x, y: parseFloat(uiElements.posY.value) }); updateEditorLabels(); });
+    uiElements.comX.addEventListener('input', () => { if (state.selectedObject) { const newOffsetX = parseFloat(uiElements.comX.value) || 0; const currentOffsetY = parseFloat(uiElements.comY.value) || 0; Body.setCentre(state.selectedObject, { x: newOffsetX, y: currentOffsetY }, true); } });
+    uiElements.comY.addEventListener('input', () => { if (state.selectedObject) { const newOffsetY = parseFloat(uiElements.comY.value) || 0; const currentOffsetX = parseFloat(uiElements.comX.value) || 0; Body.setCentre(state.selectedObject, { x: currentOffsetX, y: newOffsetY }, true); } });
+    uiElements.radius.addEventListener('input', () => { if (state.selectedObject && state.selectedObject.circleRadius) { const newRadius = parseFloat(uiElements.radius.value); const oldRadius = state.selectedObject.circleRadius; if (oldRadius > 0) Body.scale(state.selectedObject, newRadius / oldRadius, newRadius / oldRadius); } updateEditorLabels(); });
+    uiElements.width.addEventListener('input', () => { if (state.selectedObject && !state.selectedObject.circleRadius) { const newWidth = parseFloat(uiElements.width.value); const oldWidth = state.selectedObject.bounds.max.x - state.selectedObject.bounds.min.x; if (oldWidth > 0) Body.scale(state.selectedObject, newWidth / oldWidth, 1); } updateEditorLabels(); });
+    uiElements.height.addEventListener('input', () => { if (state.selectedObject && !state.selectedObject.circleRadius) { const newHeight = parseFloat(uiElements.height.value); const oldHeight = state.selectedObject.bounds.max.y - state.selectedObject.bounds.min.y; if (oldHeight > 0) Body.scale(state.selectedObject, 1, newHeight / oldHeight); } updateEditorLabels(); });
+    uiElements.polygonSize.addEventListener('input', () => { if (state.selectedObject && !state.selectedObject.circleRadius && state.selectedObject.vertices.length !== 4) { const newSize = parseFloat(uiElements.polygonSize.value); const currentSize = Math.sqrt(state.selectedObject.area / (state.selectedObject.vertices.length === 3 ? 0.433 : 1)); const scaleFactor = newSize / currentSize; if (currentSize > 0 && isFinite(scaleFactor)) { Body.scale(state.selectedObject, scaleFactor, scaleFactor); } } updateEditorLabels(); });
+    uiElements.group.addEventListener('input', () => { if (state.selectedObject && !isNaN(parseInt(uiElements.group.value))) state.selectedObject.collisionFilter.group = parseInt(uiElements.group.value); });
+    uiElements.category.addEventListener('input', () => { if (state.selectedObject && !isNaN(parseInt(uiElements.category.value))) state.selectedObject.collisionFilter.category = parseInt(uiElements.category.value); });
+    uiElements.mask.addEventListener('input', () => { if (state.selectedObject && !isNaN(parseInt(uiElements.mask.value))) state.selectedObject.collisionFilter.mask = parseInt(uiElements.mask.value); });
+    uiElements.stiffness.addEventListener('input', () => { if(state.selectedConstraint) state.selectedConstraint.stiffness = parseFloat(uiElements.stiffness.value); updateEditorLabels(); });
+    uiElements.damping.addEventListener('input', () => { if(state.selectedConstraint) state.selectedConstraint.damping = parseFloat(uiElements.damping.value); updateEditorLabels(); });
+    uiElements.length.addEventListener('input', () => { if(state.selectedConstraint) state.selectedConstraint.length = parseFloat(uiElements.length.value); updateEditorLabels(); });
+    uiElements.constraintPointAX.addEventListener('input', () => { if(state.selectedConstraint) state.selectedConstraint.pointA.x = parseFloat(uiElements.constraintPointAX.value); });
+    uiElements.constraintPointAY.addEventListener('input', () => { if(state.selectedConstraint) state.selectedConstraint.pointA.y = parseFloat(uiElements.constraintPointAY.value); });
+    uiElements.constraintPointBX.addEventListener('input', () => { if(state.selectedConstraint) state.selectedConstraint.pointB.x = parseFloat(uiElements.constraintPointBX.value); });
+    uiElements.constraintPointBY.addEventListener('input', () => { if(state.selectedConstraint) state.selectedConstraint.pointB.y = parseFloat(uiElements.constraintPointBY.value); });
 
-    const handleCompositeTranslate = () => { if (state.selectedComposite) { const dx = parseFloat(inputs.compTranslateX.value) || 0; const dy = parseFloat(inputs.compTranslateY.value) || 0; if (dx !== 0 || dy !== 0) { Composite.translate(state.selectedComposite, { x: dx, y: dy }); inputs.compTranslateX.value = 0; inputs.compTranslateY.value = 0; } } };
-    inputs.compTranslateX.addEventListener('change', handleCompositeTranslate);
-    inputs.compTranslateY.addEventListener('change', handleCompositeTranslate);
-    inputs.compRotation.addEventListener('input', () => { if (state.selectedComposite) { const bounds = getCompositeBounds(state.selectedComposite); if (!bounds) return; const center = { x: (bounds.min.x + bounds.max.x) / 2, y: (bounds.min.y + bounds.max.y) / 2 }; const newAngle = parseFloat(inputs.compRotation.value) * (Math.PI / 180); const currentAngle = state.selectedComposite.angle || 0; Composite.rotate(state.selectedComposite, newAngle - currentAngle, center); state.selectedComposite.angle = newAngle; updateEditorLabels(); } });
-    inputs.compScale.addEventListener('input', () => { if (state.selectedComposite) { const bounds = getCompositeBounds(state.selectedComposite); if (!bounds) return; const center = { x: (bounds.min.x + bounds.max.x) / 2, y: (bounds.min.y + bounds.max.y) / 2 }; const newScale = parseFloat(inputs.compScale.value); const currentScale = state.selectedComposite.scale || 1; const scaleFactor = newScale / currentScale; Composite.scale(state.selectedComposite, scaleFactor, scaleFactor, center); const constraints = Composite.allConstraints(state.selectedComposite); for (const constraint of constraints) { constraint.length *= scaleFactor; constraint.pointA = Vector.mult(constraint.pointA, scaleFactor); constraint.pointB = Vector.mult(constraint.pointB, scaleFactor); } state.selectedComposite.scale = newScale; updateEditorLabels(); } });
+    const handleCompositeTranslate = () => { if (state.selectedComposite) { const dx = parseFloat(uiElements.compTranslateX.value) || 0; const dy = parseFloat(uiElements.compTranslateY.value) || 0; if (dx !== 0 || dy !== 0) { Composite.translate(state.selectedComposite, { x: dx, y: dy }); uiElements.compTranslateX.value = 0; uiElements.compTranslateY.value = 0; } } };
+    uiElements.compTranslateX.addEventListener('change', handleCompositeTranslate);
+    uiElements.compTranslateY.addEventListener('change', handleCompositeTranslate);
+    uiElements.compRotation.addEventListener('input', () => { if (state.selectedComposite) { const bounds = getCompositeBounds(state.selectedComposite); if (!bounds) return; const center = { x: (bounds.min.x + bounds.max.x) / 2, y: (bounds.min.y + bounds.max.y) / 2 }; const newAngle = parseFloat(uiElements.compRotation.value) * (Math.PI / 180); const currentAngle = state.selectedComposite.angle || 0; Composite.rotate(state.selectedComposite, newAngle - currentAngle, center); state.selectedComposite.angle = newAngle; updateEditorLabels(); } });
+    uiElements.compScale.addEventListener('input', () => { if (state.selectedComposite) { const bounds = getCompositeBounds(state.selectedComposite); if (!bounds) return; const center = { x: (bounds.min.x + bounds.max.x) / 2, y: (bounds.min.y + bounds.max.y) / 2 }; const newScale = parseFloat(uiElements.compScale.value); const currentScale = state.selectedComposite.scale || 1; const scaleFactor = newScale / currentScale; Composite.scale(state.selectedComposite, scaleFactor, scaleFactor, center); const constraints = Composite.allConstraints(state.selectedComposite); for (const constraint of constraints) { constraint.length *= scaleFactor; constraint.pointA = Vector.mult(constraint.pointA, scaleFactor); constraint.pointB = Vector.mult(constraint.pointB, scaleFactor); } state.selectedComposite.scale = newScale; updateEditorLabels(); } });
 
     const scaleSliderRange = (slider, scaleFactor) => { 
         const currentMin = parseFloat(slider.min);
@@ -434,7 +430,8 @@ export function initUI(engine, world, masterComposite) {
     uiElements.addToCompositeBtn.addEventListener('click', () => assignToComposite(uiElements.assignCompositeList.value));
 
 
-    document.getElementById('add-object-btn').addEventListener('click', () => {
+    document.getElementById('add-object-btn').addEventListener('click', async () => {
+        const { world } = await import('./physics.js');
         const objectType = document.getElementById('object-type').value;
         const x = window.innerWidth * (0.4 + Math.random() * 0.2);
         let newBody;
@@ -451,7 +448,8 @@ export function initUI(engine, world, masterComposite) {
         uiElements.gravityValueSpan.textContent = parseFloat(this.value).toFixed(2);
     });
     
-    uiElements.compositeList.addEventListener('change', (e) => {
+    uiElements.compositeList.addEventListener('change', async (e) => {
+        const { masterComposite } = await import('./physics.js');
         const compositeId = e.target.value;
         if (compositeId === 'none') {
             state.selectedComposite = null;
@@ -472,11 +470,12 @@ export function initUI(engine, world, masterComposite) {
     uiElements.compositeNameInput.addEventListener('input', (e) => {
         if (state.selectedComposite) {
             state.selectedComposite.label = e.target.value;
-            updateCompositeLists(masterComposite);
+            updateCompositeLists();
         }
     });
 
-    uiElements.existingConstraintList.addEventListener('change', (e) => {
+    uiElements.existingConstraintList.addEventListener('change', async (e) => {
+        const { world, masterComposite } = await import('./physics.js');
         const constraintId = e.target.value;
 
         if (constraintId === 'new') {

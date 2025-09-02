@@ -1,11 +1,12 @@
 // js/main.js
 import { Matter } from './matter-alias.js';
 import { engine, world, render, runner, setupScene, setupMouseConstraint, masterComposite } from './physics.js';
-import { initUI, updateConstraintList, updateCompositeLists, updateSelectionVisuals } from './ui.js';
-import { initInteractions } from './interaction.js';
-import { loadComposite } from './serialization.js';
+import * as UIActions from './ui.js';
+import * as Interactivity from './interaction.js';
+import * as Actions from './actions.js';
+import * as Serialization from './serialization.js';
 
-const { Composite, Events } = Matter;
+const { Events } = Matter;
 
 /**
  * Main initialization function for the application.
@@ -13,34 +14,46 @@ const { Composite, Events } = Matter;
 function init() {
     // Setup the basic physics world and objects
     setupScene();
-    const mouseConstraint = setupMouseConstraint();
+    setupMouseConstraint();
 
-    // Initialize UI elements and their event listeners
-    initUI(engine);
+    // Group functions from modules to pass as dependencies
+    const uiFuncs = {
+        showMessage: UIActions.showMessage,
+        updateCompositeLists: UIActions.updateCompositeLists,
+        updateConstraintList: UIActions.updateConstraintList,
+        updateSelectionVisuals: UIActions.updateSelectionVisuals,
+        updateCompoundUI: UIActions.updateCompoundUI,
+        showEditor: UIActions.showEditor,
+        populateEditor: UIActions.populateEditor
+    };
+
+    const actionFuncs = {
+        addComposite: Actions.addComposite,
+        deleteComposite: Actions.deleteComposite,
+        removeFromComposite: Actions.removeFromComposite,
+        createCompoundBody: Actions.createCompoundBody,
+        breakCompoundBody: Actions.breakCompoundBody,
+        assignToComposite: Actions.assignToComposite
+    };
     
-    // Initialize canvas mouse interactions
-    initInteractions();
+    const serializationFuncs = {
+        saveComposite: Serialization.saveComposite,
+        showLoadModal: Serialization.showLoadModal,
+        loadComposite: Serialization.loadComposite
+    };
 
-    // Custom rendering for selections
-    Events.on(render, 'afterRender', () => {
-        // This is a good place for custom drawing on the canvas after Matter.js has rendered
-        // For now, selection visuals are handled by changing body/constraint render properties.
-    });
+    // Initialize modules, injecting dependencies
+    UIActions.initUI(engine, world, masterComposite, actionFuncs, serializationFuncs);
+    Actions.initActions(uiFuncs);
+    Interactivity.initInteractions(render, world, masterComposite, uiFuncs);
 
-    // Handle window resizing
-    window.addEventListener('resize', () => {
-        render.canvas.width = window.innerWidth;
-        render.canvas.height = window.innerHeight;
-        render.options.width = window.innerWidth;
-        render.options.height = window.innerHeight;
-    });
-    
     // Initial population of UI lists
-    updateCompositeLists();
-    updateConstraintList();
+    UIActions.updateCompositeLists();
+    UIActions.updateConstraintList();
 }
 
 // Start the application once the window is loaded
 document.addEventListener('DOMContentLoaded', () => {
     init();
 });
+
