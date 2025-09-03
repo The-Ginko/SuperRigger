@@ -51,6 +51,28 @@ function setupScene() {
 }
 
 /**
+ * Handles window resize events to keep the canvas and walls scaled correctly.
+ */
+export function handleResize() {
+    const walls = world.bodies.filter(body => body.isStatic && body.label === 'wall');
+    Composite.remove(world, walls);
+
+    render.canvas.width = window.innerWidth;
+    render.canvas.height = window.innerHeight;
+    render.options.width = window.innerWidth;
+    render.options.height = window.innerHeight;
+
+    const wallOptions = { isStatic: true, label: 'wall', render: { fillStyle: '#444' } };
+    const wallThickness = 60;
+    Composite.add(world, [
+        Bodies.rectangle(window.innerWidth / 2, window.innerHeight - (wallThickness / 2), window.innerWidth, wallThickness, wallOptions),
+        Bodies.rectangle(window.innerWidth / 2, (wallThickness / 2), window.innerWidth, wallThickness, wallOptions),
+        Bodies.rectangle((wallThickness / 2), window.innerHeight / 2, wallThickness, window.innerHeight, wallOptions),
+        Bodies.rectangle(window.innerWidth - (wallThickness / 2), window.innerHeight / 2, wallThickness, window.innerHeight, wallOptions)
+    ]);
+}
+
+/**
  * Initializes and returns the mouse constraint for the canvas.
  * @returns {Matter.MouseConstraint}
  */

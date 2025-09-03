@@ -1,13 +1,27 @@
 // js/serialization.js
 import { Matter, MatterTools } from './matter-alias.js';
-
 import state from './state.js';
 import { showMessage, updateCompositeLists } from './ui.js';
-import { runner, masterComposite } from './physics.js';
+import { runner, engine, masterComposite } from './physics.js';
 
 const { Composite, Body, Runner } = Matter;
 const { Serializer } = MatterTools;
 const serializer = Serializer.create();
+
+// --- Event Listeners for Load Modal ---
+// We add these here to keep all serialization logic in one file.
+document.addEventListener('DOMContentLoaded', () => {
+    const loadModal = document.getElementById('load-modal');
+    
+    document.getElementById('confirm-load').addEventListener('click', () => {
+        loadComposite();
+    });
+
+    document.getElementById('deny-load').addEventListener('click', () => {
+        loadModal.style.display = 'none';
+    });
+});
+// -----------------------------------------
 
 export function saveComposite() {
     if (!state.selectedComposite) {
@@ -34,10 +48,21 @@ export function showLoadModal() {
 
 export function loadComposite() {
     const jsonString = document.getElementById('load-textarea').value;
+    if (!jsonString) {
+        showMessage("Text area is empty. Nothing to load.", 'info');
+        return;
+    }
     try {
         Runner.stop(runner);
 
         const newComposite = serializer.parse(jsonString);
+        
+        // --- FIX: Ensure the loaded composite has a unique label ---
+        if (!newComposite.label || newComposite.label === "Composite") {
+            newComposite.label = `Loaded Composite ${masterComposite.composites.length + 1}`;
+        }
+        // -----------------------------------------------------------
+
         Composite.rebase(newComposite);
 
         Composite.allBodies(newComposite).forEach(body => {

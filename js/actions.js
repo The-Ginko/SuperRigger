@@ -1,27 +1,61 @@
+// js/actions.js
 import { Matter } from './matter-alias.js';
 import state from './state.js';
-import { showMessage, updateCompositeLists } from './ui.js';
-import { deselectAll, findParentComposite } from './interaction.js';
+import { findParentComposite } from './interaction.js';
 import { masterComposite, world } from './physics.js';
 
 const { Composite, Body } = Matter;
 
+let uiFuncs;
+let newCompositeCounter = 1; // A simple, robust counter for NEW composites
+
 /**
- * Creates a new, empty composite in the master composite.
+ * Initializes the actions module with necessary UI functions.
  */
-export function addComposite() {
-    const newComposite = Composite.create({ label: `Composite ${masterComposite.composites.length + 1}` });
-    Composite.add(masterComposite, newComposite);
-    updateCompositeLists(masterComposite);
+export function initActions(funcs) {
+    uiFuncs = funcs;
 }
 
 /**
- * Deletes the currently selected composite.
+ * Creates a new, empty composite with a guaranteed unique name.
+ */
+export function addComposite() {
+    const newLabel = `New Composite ${newCompositeCounter++}`;
+    const newComposite = Composite.create({ label: newLabel });
+    Composite.add(masterComposite, newComposite);
+    uiFuncs.updateCompositeLists();
+}
+
+/**
+ * Deletes the currently selected composite and all of its contents.
  */
 export function deleteComposite() {
     if (state.selectedComposite) {
-        Composite.remove(masterComposite, state.selectedComposite);
-        deselectAll();
+        // The 'true' recursively removes all children (bodies, constraints) from the world.
+        Composite.remove(masterComposite, state.selectedComposite, true);
+        uiFuncs.deselectAll();
+    }
+}
+
+/**
+ * Deletes the currently selected object.
+ */
+export function deleteObject() {
+    if (state.selectedObject) {
+        const parent = findParentComposite(state.selectedObject) || world;
+        Composite.remove(parent, state.selectedObject);
+        uiFuncs.deselectAll();
+    }
+}
+
+/**
+ * Deletes the currently selected constraint.
+ */
+export function deleteConstraint() {
+    if (state.selectedConstraint) {
+        const parent = findParentComposite(state.selectedConstraint) || world;
+        Composite.remove(parent, state.selectedConstraint);
+        uiFuncs.deselectAll();
     }
 }
 
@@ -31,48 +65,48 @@ export function deleteComposite() {
 export function removeFromComposite() {
     const itemToRemove = state.selectedObject || state.selectedConstraint;
     if (!itemToRemove) {
-        showMessage("No object or constraint selected to remove.", 'error');
+        uiFuncs.showMessage("No object or constraint selected to remove.", 'error');
         return;
     }
 
     const parentComposite = findParentComposite(itemToRemove);
     if (parentComposite && parentComposite !== world) {
+        // Move the item from its current parent composite back to the main world
         Composite.move(parentComposite, [itemToRemove], world);
-        deselectAll();
-        showMessage(`${itemToRemove.type.charAt(0).toUpperCase() + itemToRemove.type.slice(1)} removed from composite.`, 'success');
+        uiFuncs.deselectAll();
+        uiFuncs.showMessage(`${itemToRemove.type.charAt(0).toUpperCase() + itemToRemove.type.slice(1)} removed from composite.`, 'success');
     } else {
-        showMessage('Item is not in a user-created composite.', 'error');
+        uiFuncs.showMessage('Item is not in a user-created composite.', 'error');
     }
 }
 
 /**
  * Assigns the currently selected object or constraint to a target composite.
- * @param {string} targetCompositeId The ID of the composite to assign the item to.
  */
 export function assignToComposite(targetCompositeId) {
     const itemToMove = state.selectedObject || state.selectedConstraint;
     if (!itemToMove) {
-        showMessage('No object or constraint selected.', 'error');
+        uiFuncs.showMessage('No object or constraint selected.', 'error');
         return;
     }
-
-    if (targetCompositeId && targetCompositeId !== 'none') {
-        const targetComposite = Composite.get(masterComposite, targetCompositeId, 'composite');
+    const targetId = parseInt(targetCompositeId, 10);
+    if (!isNaN(targetId)) {
+        const targetComposite = Composite.get(masterComposite, targetId, 'composite');
         const parentComposite = findParentComposite(itemToMove);
 
         if (parentComposite && targetComposite) {
             if (parentComposite !== targetComposite) {
                 Composite.move(parentComposite, [itemToMove], targetComposite);
-                showMessage(`${itemToMove.type.charAt(0).toUpperCase() + itemToMove.type.slice(1)} assigned to composite.`, 'success');
-                deselectAll();
+                uiFuncs.showMessage(`${itemToMove.type.charAt(0).toUpperCase() + itemToMove.type.slice(1)} assigned to composite.`, 'success');
+                uiFuncs.deselectAll();
             } else {
-                showMessage('Item is already in the selected composite.', 'info');
+                uiFuncs.showMessage('Item is already in the selected composite.', 'info');
             }
         } else {
-            showMessage('Error: Could not determine parent or target composite.', 'error');
+            uiFuncs.showMessage('Error: Could not determine parent or target composite.', 'error');
         }
     } else {
-        showMessage('Please select a composite to assign to.', 'info');
+        uiFuncs.showMessage('Please select a composite to assign to.', 'info');
     }
 }
 
@@ -82,19 +116,19 @@ export function assignToComposite(targetCompositeId) {
 export function createCompoundBody() {
     const bodiesToCompound = state.selectionGroup.filter(item => item.type === 'body');
     if (bodiesToCompound.length < 2) {
-        showMessage('Select at least two bodies to create a compound body.', 'error');
+        uiFuncs.showMessage('Select at least two bodies to create a compound body.', 'error');
         return;
     }
 
     const parentContainer = findParentComposite(bodiesToCompound[0]);
     if (!parentContainer) {
-         showMessage('Could not determine a common container for the selected bodies.', 'error');
+         uiFuncs.showMessage('Could not determine a common container for the selected bodies.', 'error');
          return;
     }
 
     for (let i = 1; i < bodiesToCompound.length; i++) {
         if (findParentComposite(bodiesToCompound[i]) !== parentContainer) {
-            showMessage('All selected bodies must be in the same container to be combined.', 'error');
+            uiFuncs.showMessage('All selected bodies must be in the same container to be combined.', 'error');
             return;
         }
     }
@@ -118,8 +152,8 @@ export function createCompoundBody() {
     }
 
     Composite.add(parentContainer, compoundBody);
-    showMessage(`Compound body created with ID ${compoundBody.id}.`);
-    deselectAll();
+    uiFuncs.showMessage(`Compound body created with ID ${compoundBody.id}.`);
+    uiFuncs.deselectAll();
 }
 
 /**
@@ -127,7 +161,7 @@ export function createCompoundBody() {
  */
 export function breakCompoundBody() {
     if (!state.selectedObject || state.selectedObject.parts.length <= 1) {
-        showMessage('No compound body selected to break apart.', 'error');
+        uiFuncs.showMessage('No compound body selected to break apart.', 'error');
         return;
     }
 
@@ -142,7 +176,6 @@ export function breakCompoundBody() {
         Composite.add(parentContainer, part);
     });
 
-    showMessage(`Compound body ${compound.id} broken apart.`);
-    deselectAll();
+    uiFuncs.showMessage(`Compound body ${compound.id} broken apart.`);
+    uiFuncs.deselectAll();
 }
-

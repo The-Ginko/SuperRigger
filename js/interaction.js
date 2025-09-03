@@ -1,10 +1,11 @@
 // js/interaction.js
 import { Matter } from './matter-alias.js';
 import state from './state.js';
-import { showEditor, populateEditor, updateConstraintList, updateCompositeLists, updateCompoundUI, updateSelectionVisuals } from './ui.js';
 import { masterComposite, world, render } from './physics.js';
 
 const { Vector, Query, Bounds, Constraint, Composite, Events } = Matter;
+
+let uiFuncs; // To be injected
 
 /**
  * Finds the direct parent composite of a given body or constraint.
@@ -49,17 +50,20 @@ export function deselectAll(keepSelectionGroup = false) {
     if (!keepSelectionGroup) {
         state.selectionGroup = [];
     }
-    showEditor('new');
-    updateSelectionVisuals();
-    updateCompositeLists();
-    updateConstraintList();
-    updateCompoundUI();
+    uiFuncs.showEditor('new');
+    uiFuncs.updateSelectionVisuals();
+    uiFuncs.updateCompositeLists();
+    uiFuncs.updateConstraintList();
+    uiFuncs.updateCompoundUI();
 }
 
 /**
  * Initializes all user interaction event listeners for the canvas.
+ * @param {object} injectedUiFuncs - An object containing UI functions.
  */
-export function initInteractions() {
+export function initInteractions(injectedUiFuncs) {
+    uiFuncs = injectedUiFuncs;
+
     render.canvas.addEventListener('mousedown', handleMouseDown);
     render.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
@@ -123,7 +127,7 @@ function handleMouseDown(event) {
                 state.selectedObject = null;
                 state.selectedConstraint = null;
                 state.selectedComposite = null;
-                showEditor('new');
+                uiFuncs.showEditor('new');
             } else { // Single-select
                 deselectAll();
                 state.selectionGroup.push(selectedItem);
@@ -133,26 +137,26 @@ function handleMouseDown(event) {
                     if (parentComposite && parentComposite !== world) {
                         state.selectedComposite = parentComposite;
                         state.selectedObject = selectedItem; 
-                        showEditor('composite-child');
+                        uiFuncs.showEditor('composite-child');
                         document.getElementById('composite-name-input').value = state.selectedComposite.label;
                         document.getElementById('composite-id-display').textContent = state.selectedComposite.id;
                     } else {
                         state.selectedObject = selectedItem;
-                        showEditor('object');
-                        populateEditor(selectedItem);
+                        uiFuncs.showEditor('object');
+                        uiFuncs.populateEditor(selectedItem);
                     }
                 } else if (selectedItem.type === 'constraint') {
                     const parentComposite = findParentComposite(selectedItem);
                      if (parentComposite && parentComposite !== world) {
                         state.selectedComposite = parentComposite;
                         state.selectedConstraint = selectedItem;
-                        showEditor('composite-child');
+                        uiFuncs.showEditor('composite-child');
                         document.getElementById('composite-name-input').value = state.selectedComposite.label;
                         document.getElementById('composite-id-display').textContent = state.selectedComposite.id;
                     } else {
                         state.selectedConstraint = selectedItem;
-                        showEditor('constraint');
-                        populateEditor(selectedItem);
+                        uiFuncs.showEditor('constraint');
+                        uiFuncs.populateEditor(selectedItem);
                     }
                 }
             }
@@ -161,8 +165,8 @@ function handleMouseDown(event) {
         }
 
         state.lastClickPosition = { ...mousePosition };
-        updateSelectionVisuals();
-        updateCompoundUI();
+        uiFuncs.updateSelectionVisuals();
+        uiFuncs.updateCompoundUI();
     } else if (event.button === 2) { // Right-click for constraints
         const clickedBodies = Query.point(world.bodies, mousePosition);
         if (clickedBodies.length > 0) {
@@ -193,8 +197,7 @@ function handleMouseDown(event) {
                 state.selectedBodies = [];
                 state.constraintPoints = [];
             }
-            updateSelectionVisuals();
+            uiFuncs.updateSelectionVisuals();
         }
     }
 }
-

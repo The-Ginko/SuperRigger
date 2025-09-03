@@ -1,18 +1,18 @@
 // js/ui.js
 import { Matter } from './matter-alias.js';
 import state from './state.js';
-import { addComposite, deleteComposite, removeFromComposite, createCompoundBody, breakCompoundBody, assignToComposite } from './actions.js';
-import { saveComposite, showLoadModal } from './serialization.js';
 import { deselectAll, findParentComposite, getCompositeBounds } from './interaction.js';
+import { world, masterComposite } from './physics.js'; 
 
-const { Body, Vertices, Vector, Composite } = Matter;
+const { Body, Vertices, Vector, Composite, Bodies } = Matter;
 
-// This object will be populated by initUI once the DOM is ready.
 let uiElements = {};
+let actionFuncs;
+let serializationFuncs;
+let interactionFuncs;
 
 /**
  * Shows the appropriate editor panel based on the current selection.
- * @param {string} mode - 'new', 'constraint', 'object', 'composite', or 'composite-child'.
  */
 export function showEditor(mode) {
     // Hide all editors first
@@ -33,8 +33,8 @@ export function showEditor(mode) {
 
     switch(mode) {
         case 'new':
-            uiElements.uiTitle.textContent = "New Constraint";
-            uiElements.constraintEditor.style.display = 'block';
+            uiElements.uiTitle.textContent = "Editor";
+            // No specific editor shown, but title is reset
             break;
         case 'constraint':
             uiElements.uiTitle.textContent = "Edit Constraint";
@@ -64,7 +64,6 @@ export function showEditor(mode) {
 
 /**
  * Populates the editor panel with the properties of the selected item.
- * @param {Matter.Body|Matter.Constraint|Matter.Composite} item
  */
 export function populateEditor(item) {
     if (item.type === 'body') {
@@ -176,9 +175,8 @@ export function updateEditorLabels() {
 /**
  * Updates the rendering of selected items.
  */
-export async function updateSelectionVisuals() {
-    const { world, masterComposite } = await import('./physics.js');
-    const allRenderable = Composite.allBodies(world).concat(Composite.allBodies(masterComposite)).concat(Composite.allConstraints(world)).concat(Composite.allConstraints(masterComposite));
+export function updateSelectionVisuals() {
+    const allRenderable = Composite.allBodies(world).concat(Composite.allConstraints(world));
     
     // Reset all styles
     allRenderable.forEach(item => {
@@ -241,18 +239,15 @@ export async function updateSelectionVisuals() {
 /**
  * Populates the constraint dropdown list.
  */
-export async function updateConstraintList() {
-    const { world, masterComposite } = await import('./physics.js');
+export function updateConstraintList() {
+    const allConstraints = Composite.allConstraints(world);
     uiElements.existingConstraintList.innerHTML = '<option value="new">Create New...</option>';
-    const allConstraints = Composite.allConstraints(world).concat(Composite.allConstraints(masterComposite));
-
     allConstraints.forEach(c => {
         const option = document.createElement('option');
         option.value = c.id;
         option.textContent = `Constraint ${c.id}`;
         uiElements.existingConstraintList.appendChild(option);
     });
-
     uiElements.existingConstraintList.value = state.selectedConstraint ? state.selectedConstraint.id : 'new';
 }
 
@@ -260,8 +255,7 @@ export async function updateConstraintList() {
 /**
  * Populates the composite dropdown lists.
  */
-export async function updateCompositeLists() {
-    const { masterComposite } = await import('./physics.js');
+export function updateCompositeLists() {
     uiElements.compositeList.innerHTML = '<option value="none">World</option>';
     uiElements.assignCompositeList.innerHTML = '';
     
@@ -302,11 +296,12 @@ export function showMessage(text, type = 'success') {
 
 /**
  * Initializes all UI event listeners.
- * @param {Matter.Engine} engine
  */
-export function initUI(engine) {
-    // --- POPULATE UI ELEMENTS OBJECT ---
-    // This now happens inside initUI to ensure the DOM is ready.
+export function initUI(engine, injectedActionFuncs, injectedSerializationFuncs, injectedInteractionFuncs) {
+    actionFuncs = injectedActionFuncs;
+    serializationFuncs = injectedSerializationFuncs;
+    interactionFuncs = injectedInteractionFuncs;
+
     uiElements = {
         uiTitle: document.getElementById('ui-title'),
         constraintEditor: document.getElementById('constraint-editor'),
@@ -317,14 +312,13 @@ export function initUI(engine) {
         deleteObjectBtn: document.getElementById('delete-object-btn'),
         deleteCompositeBtn: document.getElementById('delete-composite-btn'),
         removeFromCompositeBtn: document.getElementById('remove-from-composite-btn'),
-        deleteModal: document.getElementById('delete-modal'),
-        modalText: document.getElementById('modal-text'),
         createCompoundBtn: document.getElementById('create-compound-btn'),
         breakCompoundBtn: document.getElementById('break-compound-btn'),
         compositeNameInput: document.getElementById('composite-name-input'),
         compositeList: document.getElementById('composite-list'),
         assignCompositeList: document.getElementById('assign-composite-list'),
         addToCompositeBtn: document.getElementById('add-to-composite-btn'),
+        addCompositeBtn: document.getElementById('add-composite-btn'),
         saveCompositeBtn: document.getElementById('save-composite-btn'),
         loadCompositeBtn: document.getElementById('load-composite-btn'),
         gravitySlider: document.getElementById('gravity-slider'),
@@ -362,7 +356,7 @@ export function initUI(engine) {
         compScale: document.getElementById('composite-scale')
     };
 
-    // --- SETUP EVENT LISTENERS ---
+    // --- Physical Property Event Listeners ---
     uiElements.isStatic.addEventListener('change', () => { if (state.selectedObject) Body.setStatic(state.selectedObject, uiElements.isStatic.checked); });
     uiElements.angle.addEventListener('input', () => { if (state.selectedObject) Body.setAngle(state.selectedObject, parseFloat(uiElements.angle.value) * (Math.PI / 180)); updateEditorLabels(); });
     uiElements.restitution.addEventListener('input', () => { if (state.selectedObject) state.selectedObject.restitution = parseFloat(uiElements.restitution.value); updateEditorLabels(); });
@@ -388,50 +382,26 @@ export function initUI(engine) {
     uiElements.constraintPointAY.addEventListener('input', () => { if(state.selectedConstraint) state.selectedConstraint.pointA.y = parseFloat(uiElements.constraintPointAY.value); });
     uiElements.constraintPointBX.addEventListener('input', () => { if(state.selectedConstraint) state.selectedConstraint.pointB.x = parseFloat(uiElements.constraintPointBX.value); });
     uiElements.constraintPointBY.addEventListener('input', () => { if(state.selectedConstraint) state.selectedConstraint.pointB.y = parseFloat(uiElements.constraintPointBY.value); });
-
-    const handleCompositeTranslate = () => { if (state.selectedComposite) { const dx = parseFloat(uiElements.compTranslateX.value) || 0; const dy = parseFloat(uiElements.compTranslateY.value) || 0; if (dx !== 0 || dy !== 0) { Composite.translate(state.selectedComposite, { x: dx, y: dy }); uiElements.compTranslateX.value = 0; uiElements.compTranslateY.value = 0; } } };
-    uiElements.compTranslateX.addEventListener('change', handleCompositeTranslate);
-    uiElements.compTranslateY.addEventListener('change', handleCompositeTranslate);
+    uiElements.compTranslateX.addEventListener('change', () => { if (state.selectedComposite) { const dx = parseFloat(uiElements.compTranslateX.value) || 0; if (dx !== 0) { Composite.translate(state.selectedComposite, { x: dx, y: 0 }); uiElements.compTranslateX.value = 0; } } });
+    uiElements.compTranslateY.addEventListener('change', () => { if (state.selectedComposite) { const dy = parseFloat(uiElements.compTranslateY.value) || 0; if (dy !== 0) { Composite.translate(state.selectedComposite, { x: 0, y: dy }); uiElements.compTranslateY.value = 0; } } });
     uiElements.compRotation.addEventListener('input', () => { if (state.selectedComposite) { const bounds = getCompositeBounds(state.selectedComposite); if (!bounds) return; const center = { x: (bounds.min.x + bounds.max.x) / 2, y: (bounds.min.y + bounds.max.y) / 2 }; const newAngle = parseFloat(uiElements.compRotation.value) * (Math.PI / 180); const currentAngle = state.selectedComposite.angle || 0; Composite.rotate(state.selectedComposite, newAngle - currentAngle, center); state.selectedComposite.angle = newAngle; updateEditorLabels(); } });
-    uiElements.compScale.addEventListener('input', () => { if (state.selectedComposite) { const bounds = getCompositeBounds(state.selectedComposite); if (!bounds) return; const center = { x: (bounds.min.x + bounds.max.x) / 2, y: (bounds.min.y + bounds.max.y) / 2 }; const newScale = parseFloat(uiElements.compScale.value); const currentScale = state.selectedComposite.scale || 1; const scaleFactor = newScale / currentScale; Composite.scale(state.selectedComposite, scaleFactor, scaleFactor, center); const constraints = Composite.allConstraints(state.selectedComposite); for (const constraint of constraints) { constraint.length *= scaleFactor; constraint.pointA = Vector.mult(constraint.pointA, scaleFactor); constraint.pointB = Vector.mult(constraint.pointB, scaleFactor); } state.selectedComposite.scale = newScale; updateEditorLabels(); } });
-
-    const scaleSliderRange = (slider, scaleFactor) => { 
-        const currentMin = parseFloat(slider.min);
-        const currentMax = parseFloat(slider.max);
-        const currentStep = parseFloat(slider.step);
-        let newMin = currentMin * scaleFactor;
-        let newMax = currentMax * scaleFactor;
-        let newStep = currentStep * scaleFactor;
-        if (newMax < newMin + newStep) {
-            newMax = newMin + newStep;
-        }
-        slider.min = newMin;
-        slider.max = newMax;
-        slider.step = newStep;
-        const rangeDisplay = slider.closest('.slider-with-controls').querySelector('.range-display');
-        rangeDisplay.textContent = `Range: ${newMin} - ${newMax}`;
-     };
-    document.querySelectorAll('.range-and-controls button').forEach(button => { 
-        button.addEventListener('click', () => {
-            const sliderId = button.dataset.target;
-            const slider = document.getElementById(sliderId);
-            const scale = parseFloat(button.dataset.scale);
-            scaleSliderRange(slider, scale);
-        });
-     });
+    uiElements.compScale.addEventListener('input', () => { if (state.selectedComposite) { const bounds = getCompositeBounds(state.selectedComposite); if (!bounds) return; const center = { x: (bounds.min.x + bounds.max.x) / 2, y: (bounds.min.y + bounds.max.y) / 2 }; const newScale = parseFloat(uiElements.compScale.value); const currentScale = state.selectedComposite.scale || 1; const scaleFactor = newScale / currentScale; Composite.scale(state.selectedComposite, scaleFactor, scaleFactor, center); state.selectedComposite.scale = newScale; updateEditorLabels(); } });
+    document.querySelectorAll('.range-and-controls button').forEach(button => { button.addEventListener('click', () => { const slider = document.getElementById(button.dataset.target); const scale = parseFloat(button.dataset.scale); const currentMin = parseFloat(slider.min); const currentMax = parseFloat(slider.max); let newMax = currentMax * scale; if (newMax < currentMin + parseFloat(slider.step)) { newMax = currentMin + parseFloat(slider.step); } slider.max = newMax; slider.closest('.slider-with-controls').querySelector('.range-display').textContent = `Range: ${slider.min} - ${newMax}`; }); });
 
     // --- GENERAL UI LISTENERS ---
-    uiElements.saveCompositeBtn.addEventListener('click', saveComposite);
-    uiElements.loadCompositeBtn.addEventListener('click', showLoadModal);
-    uiElements.createCompoundBtn.addEventListener('click', createCompoundBody);
-    uiElements.breakCompoundBtn.addEventListener('click', breakCompoundBody);
-    uiElements.addCompositeBtn.addEventListener('click', addComposite);
-    uiElements.removeFromCompositeBtn.addEventListener('click', removeFromComposite);
-    uiElements.addToCompositeBtn.addEventListener('click', () => assignToComposite(uiElements.assignCompositeList.value));
+    uiElements.saveCompositeBtn.addEventListener('click', serializationFuncs.saveComposite);
+    uiElements.loadCompositeBtn.addEventListener('click', serializationFuncs.showLoadModal);
+    uiElements.createCompoundBtn.addEventListener('click', actionFuncs.createCompoundBody);
+    uiElements.breakCompoundBtn.addEventListener('click', actionFuncs.breakCompoundBody);
+    uiElements.addCompositeBtn.addEventListener('click', actionFuncs.addComposite);
+    uiElements.removeFromCompositeBtn.addEventListener('click', actionFuncs.removeFromComposite);
+    uiElements.addToCompositeBtn.addEventListener('click', () => actionFuncs.assignToComposite(uiElements.assignCompositeList.value));
+    uiElements.deleteCompositeBtn.addEventListener('click', actionFuncs.deleteComposite);
+    uiElements.deleteObjectBtn.addEventListener('click', actionFuncs.deleteObject);
+    uiElements.deleteConstraintBtn.addEventListener('click', actionFuncs.deleteConstraint);
 
 
-    document.getElementById('add-object-btn').addEventListener('click', async () => {
-        const { world } = await import('./physics.js');
+    document.getElementById('add-object-btn').addEventListener('click', () => {
         const objectType = document.getElementById('object-type').value;
         const x = window.innerWidth * (0.4 + Math.random() * 0.2);
         let newBody;
@@ -448,41 +418,49 @@ export function initUI(engine) {
         uiElements.gravityValueSpan.textContent = parseFloat(this.value).toFixed(2);
     });
     
-    uiElements.compositeList.addEventListener('change', async (e) => {
-        const { masterComposite } = await import('./physics.js');
-        const compositeId = e.target.value;
-        if (compositeId === 'none') {
+    // --- THIS IS THE CORRECTED SELECTION LOGIC ---
+    uiElements.compositeList.addEventListener('change', (e) => {
+        const selectedValue = e.target.value;
+        
+        if (selectedValue === 'none') {
             state.selectedComposite = null;
-            showEditor('new'); 
+            // When deselecting a composite, we don't want to deselect a currently selected object
+            if (state.selectedObject || state.selectedConstraint) {
+                // Do nothing, let the object stay selected
+            } else {
+                showEditor('new');
+            }
         } else {
-            state.selectedComposite = Composite.get(masterComposite, compositeId, 'composite');
+            // The value from the option is a string, but Matter.js IDs are numbers.
+            const compositeId = parseInt(selectedValue, 10);
+            const foundComposite = Composite.get(masterComposite, compositeId, 'composite');
+            
+            if (foundComposite) {
+                deselectAll(); // Clear any selected object before selecting the composite
+                state.selectedComposite = foundComposite;
+                showEditor('composite');
+                uiElements.compositeNameInput.value = state.selectedComposite.label;
+                document.getElementById('composite-id-display').textContent = state.selectedComposite.id;
+            }
         }
-        
-        if (state.selectedComposite) {
-            showEditor('composite');
-            uiElements.compositeNameInput.value = state.selectedComposite.label;
-            document.getElementById('composite-id-display').textContent = state.selectedComposite.id; 
-        }
-        
         updateSelectionVisuals();
     });
     
     uiElements.compositeNameInput.addEventListener('input', (e) => {
         if (state.selectedComposite) {
             state.selectedComposite.label = e.target.value;
+            // We need to update the list to show the new name
             updateCompositeLists();
         }
     });
 
-    uiElements.existingConstraintList.addEventListener('change', async (e) => {
-        const { world, masterComposite } = await import('./physics.js');
-        const constraintId = e.target.value;
-
-        if (constraintId === 'new') {
+    uiElements.existingConstraintList.addEventListener('change', (e) => {
+        const constraintId = parseInt(e.target.value, 10);
+        if (isNaN(constraintId)) {
             deselectAll();
         } else {
-            const allConstraints = Composite.allConstraints(world).concat(Composite.allConstraints(masterComposite));
-            const selectedItem = allConstraints.find(c => c.id == constraintId);
+            const allConstraints = Composite.allConstraints(world);
+            const selectedItem = allConstraints.find(c => c.id === constraintId);
             if (selectedItem) {
                 deselectAll();
                 state.selectedConstraint = selectedItem;
@@ -493,4 +471,3 @@ export function initUI(engine) {
         }
     });
 }
-
