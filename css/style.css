@@ -164,7 +164,7 @@
             font-family: monospace;
             resize: vertical;
         }
-        //styling for controls sliders with range control 
+        /*styling for controls sliders with range control */
         .slider-with-controls {
     margin-bottom: 12px;
 }
